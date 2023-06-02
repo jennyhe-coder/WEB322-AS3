@@ -3,6 +3,7 @@ const path = require("path");
 
 //read all the data from the file and save it in the array
 let itemArray = [];
+let categoriesArray = [];
 
 //open, read and save the file into the items array
 module.exports.initialize = function(){
@@ -14,22 +15,16 @@ module.exports.initialize = function(){
             else{
                 itemArray = JSON.parse(data); //convert the file's content into an array of objects  
                 resolve();
-            }
-        })
-    })
-}
-
-//Do the same for the categories file
-let categoriesArray = [];
-module.exports.initialize = function(){
-    return new Promise((resolve, reject) =>{
-        fs.readFile(path.join(__dirname, 'data', 'categories.json'), 'utf-8', (err, data)=>{
-            if(err){ //if error occured in code reject the promise and show err in console
-                reject(err);
-            }
-            else{
-                categoriesArray = JSON.parse(data); //convert the file's content into an array of objects  
-                resolve();
+                //Do the same for the categories file after success in reading the items array
+                fs.readFile(path.join(__dirname, 'data', 'categories.json'), 'utf-8', (err, data)=>{
+                    if(err){ //if error occured in code reject the promise and show err in console
+                        reject(err);
+                    }
+                    else{
+                        categoriesArray = JSON.parse(data); //convert the file's content into an array of objects  
+                        resolve();
+                    }
+                })
             }
         })
     })

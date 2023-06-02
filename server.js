@@ -15,10 +15,10 @@ var app = express();
 const path = require("path");
 const store = require("./store-service.js");
 
-var HTTP_PORT = process.env.PORT || 8080;
-
 //public refers to the name of the directory
 app.use(express.static('public'));
+
+var HTTP_PORT = process.env.PORT || 8080;
 
 function onHTTPStart(){
     console.log("Express http server listening on port " + HTTP_PORT);
@@ -37,25 +37,25 @@ app.get("/about", function(req, res){
 //setup the other routes 
 app.get("/shop", function(req, res){
     store.getPublishedItems().then((data)=>{
-        res.json(data); //display data on the webpage
+        res.send(data); //display data on the webpage
     }).catch(function(err){
-        console.log("Unable to open " + err);
+        res.send("Unable to open " + err);
     })
 });
 
 app.get("/items", function(req, res){
     store.getAllItems().then((data)=>{
-        res.json(data); //display data on the webpage
+        res.send(data); //display data on the webpage
     }).catch(function(err){
-        console.log("Unable to open " + err);
+        res.send("Unable to open " + err);
     })
 });
 
 app.get("/categories", function(req, res){
     store.getCategories().then((data)=>{
-        res.json(data); //display data on the webpage
+        res.send(data); //display data on the webpage
     }).catch(function(err){
-        console.log("Unable to open " + err);
+        res.send("Unable to open " + err);
     })
 });
 
