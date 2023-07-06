@@ -83,6 +83,7 @@ module.exports.addItem = function(itemData){
             itemData.published = true;
         }
         itemData.id = itemArray.length + 1;
+        itemData[itemArray.length + 1].postDate = new Date().toISOString().split("T")[0];
         itemArray.push(itemData);
         if(itemArray.length === 0){
             reject("No results returned for the added items array");
@@ -136,6 +137,24 @@ module.exports.getItemById = function(id){
         }
         else{
             reject("no results returned for a single item object that matches with the id");
+        }
+    })
+}
+
+//filtering items by category 
+module.exports.getPublishedItemsByCategory = function(category){
+    return new Promise((resolve, reject)=>{
+        let publishedItems = [];
+        for(let i = 0; i < itemArray.length; i++){
+            if(itemArray[i].published === true && itemArray[i].category == category){
+                publishedItems.push(itemArray[i]);
+            }
+        }
+        if(publishedItems.length === 0){
+            reject("No results returned for published items");
+        }
+        else{
+            resolve(publishedItems);
         }
     })
 }
