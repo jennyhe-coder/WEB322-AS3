@@ -4,7 +4,7 @@
  * of this assignment has been copied manually or electronically from any other source
  * (including 3rd party web sites) or distributed to other students.
  * 
- * Name: Jie He Student ID: 130987225 Date: 2023/06/16
+ * Name: Jie He Student ID: 130987225 Date: 2023/07/05
  * 
  * Online (Cyclic) Link: 
  * 
@@ -14,6 +14,7 @@ var express = require("express");
 var app = express();
 const path = require("path");
 const store = require("./store-service.js");
+const exphbs = require('express-handlebars'); 
 
 //middleware
 const multer = require("multer");
@@ -38,30 +39,148 @@ function onHTTPStart(){
     console.log("Express http server listening on port " + HTTP_PORT);
 }
 
+//fixing the navigation bar 
+app.use(function(req,res,next){
+    let route = req.path.substring(1);
+    app.locals.activeRoute = "/" + (isNaN(route.split('/')[1]) ? route.replace(/\/(?!.*)/, "") : route.replace(/\/(.*)/, ""));
+    app.locals.viewingCategory = req.query.category;
+    next();
+});
+
+// Register handlebars as the rendering engine for views
+app.engine('.hbs', exphbs.engine({ extname: '.hbs', 
+helpers: { //custom helpers
+    navLink: function(url, options){
+        return(
+            '<li class="nav-item"><a ' +
+            //if the app.locals.activeRoute matches the url (about) it will dynamically update the navbar to active link
+            (url == app.locals.activeRoute ? ' class="nav-link active" ' : ' class="nav-link" ') +
+            ' href=" ' + 
+            url + 
+            ' ">' + 
+            options.fn(this) +
+            "</a></li>"
+        );
+    },
+    equal: function(lvalue, rvalue, options){ //this helper gives the ability to evaluate conditions for equality
+        if(arguments.length < 3){
+            throw new Error("Handlebars Helper equal needs 2 parameters");
+        }
+        if(lvalue != rvalue){
+            return options.inverse(this);
+        }
+        else{
+            return options.fn(this);
+        }
+    }
+}
+}));
+app.set('view engine', '.hbs');
+
 //The route "/" must redirect the user to the "/about" route – this can be accomplished using res.redirect() 
 app.get("/", function(req, res){
-    res.redirect("/about");
+    res.redirect("/shop");
 });
 
 //Setup a route to listen for the "/about" must return the about.html file from the views folder
 app.get("/about", function(req, res){
-    res.sendFile(path.join(__dirname, "views/about.html"));
+    res.render('about',{
+        layout: 'main' //use main as the layout 
+    });
 });
 
-//setup the other routes 
-app.get("/shop", function(req, res){
-    store.getPublishedItems().then((data)=>{
-        res.send(data); //display data on the webpage
-    }).catch(function(err){
-        res.send("Unable to open " + err);
-    })
-});
+//setup the /shop route given to us 
+app.get("/shop", async (req, res) => {
+    // Declare an object to store properties for the view
+    let viewData = {};
+    try {
+      // declare empty array to hold "post" objects
+      let items = [];
+  
+      // if there's a "category" query, filter the returned posts by category
+      if (req.query.category) {
+        // Obtain the published "posts" by category
+        items = await store.getPublishedItemsByCategory(req.query.category);
+      } else {
+        // Obtain the published "items"
+        items = await store.getPublishedItems();
+      }
+      // sort the published items by postDate
+      items.sort((a, b) => new Date(b.postDate) - new Date(a.postDate));
+  
+      // get the latest post from the front of the list (element 0)
+      let post = items[0];
+  
+      // store the "items" and "post" data in the viewData object (to be passed to the view)
+      viewData.items = items;
+      viewData.post = post;
+    } catch (err) {
+      viewData.message = "no results";
+    }
+    try {
+      // Obtain the full list of "categories"
+      let categories = await store.getCategories();
+      // store the "categories" data in the viewData object (to be passed to the view)
+      viewData.categories = categories;
+    } catch (err) {
+      viewData.categoriesMessage = "no results";
+    }
+    // render the "shop" view with all of the data (viewData)
+    res.render("shop", { data: viewData });
+  });
+
+//adding the shop/:id route to we can show items with that specific id
+  app.get('/shop/:id', async (req, res) => {
+    // Declare an object to store properties for the view
+    let viewData = {};
+    try{
+        // declare empty array to hold "item" objects
+        let items = [];
+  
+        // if there's a "category" query, filter the returned posts by category
+        if(req.query.category){
+            // Obtain the published "posts" by category
+            items = await itemData.getPublishedItemsByCategory(req.query.category);
+        }else{
+            // Obtain the published "posts"
+            items = await itemData.getPublishedItems();
+        }
+  
+        // sort the published items by postDate
+        items.sort((a,b) => new Date(b.postDate) - new Date(a.postDate));
+  
+        // store the "items" and "item" data in the viewData object (to be passed to the view)
+        viewData.items = items;
+    }catch(err){
+        viewData.message = "no results";
+    }
+    try{
+        // Obtain the item by "id"
+        viewData.item = await itemData.getItemById(req.params.id);
+    }catch(err){
+        viewData.message = "no results"; 
+    }
+    try{
+        // Obtain the full list of "categories"
+        let categories = await itemData.getCategories();
+        // store the "categories" data in the viewData object (to be passed to the view)
+        viewData.categories = categories;
+    }catch(err){
+        viewData.categoriesMessage = "no results"
+    }
+    // render the "shop" view with all of the data (viewData)
+    res.render("shop", {data: viewData})
+  });
 
 app.get("/categories", function(req, res){
     store.getCategories().then((data)=>{
-        res.send(data); //display data on the webpage
+        res.render("categories", {
+            categories: data
+        }); //display data on the webpage
     }).catch(function(err){
-        res.send("Unable to open " + err);
+        res.render("posts", {
+            message: "Unable to open " + err
+        });
     })
 });
 
@@ -74,7 +193,9 @@ store.initialize().then(function(){
 
 //setup a route to send the html form to the client 
 app.get("/items/add", function(req, res){
-    res.sendFile(path.join(__dirname, "views/addItem.html"));
+    res.render('addItem', {
+        layout: 'main'
+    });
 })
 
 //adding the /item/add route 
@@ -133,24 +254,36 @@ app.get("/items", function(req, res){
     const{category, minDate} = req.query;
     if(category){
         store.getItemsByCategory(category).then((data)=>{
-            res.send(data); //return a JSON string of all items whose category = value (ex. 1,2,3,4)
+            res.render("items", {
+                items: data
+            }); 
         }).catch(function(err){ 
-            res.send("Unable to get items by category " + err);
+            res.render("posts", {
+                message: "Unable to get items by category " + err
+            });
         })
     }
     else if(minDate){
         store.getItemsByMinDate(minDate).then((data)=>{
-            res.send(data); //return a JSON string
+            res.render("items", {
+                items: data
+            }); 
         }).catch(function(err){
-            res.send("Unable to get items by min date " + err);
+            res.render("posts", {
+                message: "Unable to get items by min date " + err
+            });
         })
     }
     else{
         //no filters at all
         store.getAllItems().then((data)=>{
-            res.send(data); //return a json string 
+            res.render("items", {
+                items: data
+            }); 
         }).catch((err)=>{
-            res.send('Unable to get all items ' + err);
+            res.render("posts", {
+                message: "no results" + err
+            });
         })
     }
 });
@@ -166,5 +299,7 @@ app.get("items/:value", function(req, res){
 
 //no matching route 
 app.use((req, res)=>{
-    res.status(404).send("Page Not Found");
+    res.status(404).render("404", {
+        message: "Page Not Found"
+    });
 });
