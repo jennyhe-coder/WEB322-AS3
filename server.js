@@ -342,7 +342,7 @@ app.get("/items", function(req, res){
                 }); 
             }
             else{
-                res.render("Items",{ 
+                res.render("items",{ 
                     message: "no results" 
                 });
             }
@@ -360,7 +360,7 @@ app.get("/items", function(req, res){
                 }); 
             }
             else{
-                res.render("Items",{ 
+                res.render("items",{ 
                     message: "no results" 
                 });
             }
@@ -379,7 +379,7 @@ app.get("/items", function(req, res){
                 }); 
             }
             else{
-                res.render("Items",{ 
+                res.render("items",{ 
                     message: "no results" 
                 });
             }
