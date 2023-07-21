@@ -6,7 +6,7 @@
  * 
  * Name: Jie He Student ID: 130987225 Date: 2023/07/05
  * 
- * Online (Cyclic) Link: 
+ * Online (Cyclic) Link: https://tame-jade-hare-cap.cyclic.app
  * 
  * ********************************************************************************/
 
@@ -32,6 +32,9 @@ cloudinary.config({
 
 //public refers to the name of the directory
 app.use(express.static('public'));
+
+//categories does not require users to upload an image we should also include the regular middleware 
+app.use(express.urlencoded({extended: true}));
 
 var HTTP_PORT = process.env.PORT || 8080;
 
@@ -72,8 +75,14 @@ helpers: { //custom helpers
         else{
             return options.fn(this);
         }
+    },
+    formatDate: function(dateObj){ //real date values instead of strings
+            let year = dateObj.getFullYear(); 
+            let month = (dateObj.getMonth() + 1).toString(); 
+            let day = dateObj.getDate().toString(); 
+            return `${year}-${month.padStart(2, '0')}-${day.padStart(2,'0')}`; 
+        } 
     }
-}
 }));
 app.set('view engine', '.hbs');
 
@@ -174,9 +183,16 @@ app.get("/shop", async (req, res) => {
 
 app.get("/categories", function(req, res){
     store.getCategories().then((data)=>{
-        res.render("categories", {
-            categories: data
-        }); //display data on the webpage
+        if(data.length > 0){
+            res.render("categories", {
+                categories: data
+            }); 
+        }
+        else{
+            res.render("categories", {
+                message: "no results"
+            })
+        }
     }).catch(function(err){
         res.render("posts", {
             message: "Unable to open " + err
@@ -191,11 +207,17 @@ store.initialize().then(function(){
     console.log("Unable to start server " + err);
 })
 
-//setup a route to send the html form to the client 
+//setup a route to senend the html form to the clit 
 app.get("/items/add", function(req, res){
-    res.render('addItem', {
-        layout: 'main'
-    });
+    store.getCategories().then((data)=>{
+        res.render('addItem', {
+            categories: data
+        });
+    }).catch(()=>{
+        res.render('addItem', {
+            categories: [] //if promise is rejected then send an empty array for categories
+        });
+    })
 })
 
 //adding the /item/add route 
@@ -248,15 +270,82 @@ app.post("/items/add", upload.single("featureImage"), (req,res)=>{
         }
 })
 
+//setup a route to send the html form to the client 
+app.get("/categories/add", function(req, res){
+    res.render('addCategory', { //set up route to render an addCategory view 
+        layout: 'main'
+    });
+})
+
+//adding the /categories/add route 
+app.post("/categories/add", (req, res) => {
+    if(req.file){
+        let streamUpload = (req) => {
+            return new Promise((resolve, reject) => {
+                let stream = cloudinary.uploader.upload_stream(
+                    (error, result) => {
+                        if (result) {resolve(result);
+                        } 
+                        else {
+                            reject(error);
+                        }
+                    });
+                    streamifier.createReadStream(req.file.buffer).pipe(stream);
+                });
+            };
+            async function upload(req) {
+                let result = await streamUpload(req);
+                console.log(result);
+                return result;
+            }
+            upload(req).then(()=>{
+                processCategory();
+            });
+        }
+        else{
+            processCategory("");
+        }
+        function processCategory(){
+            // TODO: Process the req.body and add it as a new Item before redirecting to /items
+            const newCategory = {}; //make the new variable equal to the data submitted in the req body
+
+            newCategory.id = req.body.id;
+            newCategory.name = req.body.name;
+
+            //the additem function is then used to add a new item 
+            store.addCategory(req.body).then(()=>{
+                res.redirect('/categories');
+            }).catch((err)=>{
+                res.send('Unable to add category ' + err);
+            })
+        }
+});
+
+// do the /categories/delete/:id route
+app.get("/categories/delete/:id", function(req, res){
+    store.deleteCategoryById(req.params.id).then(() =>{
+        res.redirect('/Categories');
+    }).catch((err) =>{
+        res.status(500).send("Unable to Remove Category / Category not found");
+    });
+});
+
 //adding new routes to query items
 //update the /items?category=value route 
 app.get("/items", function(req, res){
     const{category, minDate} = req.query;
     if(category){
         store.getItemsByCategory(category).then((data)=>{
-            res.render("items", {
-                items: data
-            }); 
+            if(data.length > 0){
+                res.render("items", {
+                    items: data
+                }); 
+            }
+            else{
+                res.render("Items",{ 
+                    message: "no results" 
+                });
+            }
         }).catch(function(err){ 
             res.render("posts", {
                 message: "Unable to get items by category " + err
@@ -265,9 +354,16 @@ app.get("/items", function(req, res){
     }
     else if(minDate){
         store.getItemsByMinDate(minDate).then((data)=>{
-            res.render("items", {
-                items: data
-            }); 
+            if(data.length > 0){
+                res.render("items", {
+                    items: data
+                }); 
+            }
+            else{
+                res.render("Items",{ 
+                    message: "no results" 
+                });
+            }
         }).catch(function(err){
             res.render("posts", {
                 message: "Unable to get items by min date " + err
@@ -277,9 +373,16 @@ app.get("/items", function(req, res){
     else{
         //no filters at all
         store.getAllItems().then((data)=>{
-            res.render("items", {
-                items: data
-            }); 
+            if(data.length > 0){
+                res.render("items", {
+                    items: data
+                }); 
+            }
+            else{
+                res.render("Items",{ 
+                    message: "no results" 
+                });
+            }
         }).catch((err)=>{
             res.render("posts", {
                 message: "no results" + err
@@ -296,6 +399,16 @@ app.get("items/:value", function(req, res){
         res.send("Unable get items by id " + err);
     })
 });
+
+
+// add the /Items/delete/:id route
+app.get("/items/delete/:id", function(req, res){
+    store.deletePostById(req.params.id).then(()=>{
+        res.redirect("/items");
+    }).catch((err) =>{
+        res.status(500).send("Unable to Remove Category / Category not found");
+    });
+})
 
 //no matching route 
 app.use((req, res)=>{
