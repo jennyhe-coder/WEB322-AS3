@@ -25,15 +25,15 @@
                 //If session.user exists
                 {{#if session.user}}
                 <form class="navbar-form navbar-right"> 
-                    <div class="dropdown"> 
-                        <button class="btn btn-primary dropdown-toggle" type="button" id="userMenu" data-toggle="dropdown"> 
-                            <span class="glyphicon glyphicon-user"></span>&nbsp;&nbsp;{{session.user.userName}}&nbsp;&nbsp;<span class="caret"></span> 
-                        </button> 
-                        <ul class="dropdown-menu" aria-labelledby="userMenu"> 
-                            <li><a href="/userHistory">User History</a></li> 
-                            <li><a href="/logout">Log Out</a></li> 
-                        </ul> 
-                    </div> 
+                    <div class="dropdown">
+                        <button class="btn btn-primary dropdown-toggle" type="button" id="userMenu" data-bs-toggle="dropdown">
+                            <span class="glyphicon glyphicon-user"></span>&nbsp;&nbsp;{{session.user.userName}}&nbsp;&nbsp;<span class="caret"></span>
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="userMenu">
+                            <li><a class="dropdown-item" href="/userHistory">User History</a></li>
+                            <li><a class="dropdown-item" href="/logout">Log Out</a></li>
+                        </ul>
+                    </div>
                 </form>
                 
                 //If session.user does not exist

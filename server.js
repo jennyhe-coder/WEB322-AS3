@@ -477,7 +477,7 @@ app.post("/login", (req, res) =>{
         }
         res.redirect("/items");
     }).catch((err) =>{
-        res.render("/login", {
+        res.render("login", {
             errorMessage: err,
             //returning the user back to the page so they don't forget the user value that was used to attempt to log into the system 
             userName: req.body.userName
