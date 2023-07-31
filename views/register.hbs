@@ -1,0 +1,45 @@
+{{!--space available for error output only if there is an errorMessage --}}
+{{#if errorMessage}}
+<div class="alert alert-danger"> 
+    <strong>Error:</strong> 
+    {{errorMessage}}
+</div> 
+{{/if}}
+
+<h2>Register</h2>
+<hr>
+<br/>
+
+{{!--this form is only visible if successMessage was not rendered with the view --}}
+{{#if successMessage}}
+<div class="alert alert-success"> 
+    <strong>Success:</strong> 
+    {{successMessage}}
+</div>
+<a class="btn btn-success pull-right" href="/login">&nbsp;&nbsp;&nbsp;Proceed to Log in&nbsp;&nbsp;&nbsp;</a>
+<br /><br /><br />
+{{else}}
+<form action="/register" method="post">
+    <div>
+        <label for="Username"></label>
+        <input type="text" name="userName" placeholder="User Name" required>
+    </div>
+    <br />
+    <div>
+        <label for="password"></label>
+        <input type="password" name="password" placeholder="Password" required>
+    </div>
+    <br />
+    <div>
+        <label for="password2"></label>
+        <input type="password" name="password2" placeholder="Confirm Password" required>
+    </div>
+    <br />
+    <div>
+        <label for="email"></label>
+        <input type="email" name="email" placeholder="Email Address" required>
+    </div>
+    <br />
+    <button type="submit" class="btn btn-success pull-right">Register</button>
+</form>
+{{/if}}
