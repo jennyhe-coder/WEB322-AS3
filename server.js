@@ -4,7 +4,7 @@
  * of this assignment has been copied manually or electronically from any other source
  * (including 3rd party web sites) or distributed to other students.
  * 
- * Name: Jie He Student ID: 130987225 Date: 2023/07/05
+ * Name: Jie He Student ID: 130987225 Date: 2023/08/06
  * 
  * Online (Cyclic) Link: https://tame-jade-hare-cap.cyclic.app
  * 
@@ -12,9 +12,10 @@
 
 var express = require("express");
 var app = express();
-const path = require("path");
 const store = require("./store-service.js");
 const exphbs = require('express-handlebars'); 
+const authData = require("./auth-service.js");
+const clientSessions = require("client-sessions");
 
 //middleware
 const multer = require("multer");
@@ -40,6 +41,39 @@ var HTTP_PORT = process.env.PORT || 8080;
 
 function onHTTPStart(){
     console.log("Express http server listening on port " + HTTP_PORT);
+}
+
+//app.listen code
+//added authData initialize method to the promise chain
+store.initialize().then(authData.initialize).then(function(){
+    app.listen(HTTP_PORT, onHTTPStart);
+}).catch(function(err){
+    console.log("Unable to start server " + err);
+})
+
+//setup client-sessions
+app.use(clientSessions({
+    cookieName: "session",
+    secret: "web322_assignment6",
+    duration: 2 * 60 * 1000, //duration of the session in millisecs (2 min)
+    activeDuration: 1000 * 60 //the session will be extended by this many ms (1 min)
+}))
+
+//ensure that all the templates will have access to a "session" object, need this to conditionally hide/show elements
+app.use(function(req, res, next){
+    //the session data will be available in all templates rendered by the application via res.locals
+    res.locals.session = req.session; 
+    next(); //callback function that must be called to pass control to the next middleware in the chain
+});
+
+//Define a helper middleware function that checks if a user is logged in
+function ensureLogin(req, res, next){
+    if(!req.session.user){
+        res.redirect("/login");
+    }
+    else{
+        next();
+    }
 }
 
 //fixing the navigation bar 
@@ -181,7 +215,7 @@ app.get("/shop", async (req, res) => {
     res.render("shop", {data: viewData})
   });
 
-app.get("/categories", function(req, res){
+app.get("/categories", ensureLogin, function(req, res){
     store.getCategories().then((data)=>{
         if(data.length > 0){
             res.render("categories", {
@@ -200,15 +234,8 @@ app.get("/categories", function(req, res){
     })
 });
 
-//app.listen code
-store.initialize().then(function(){
-    app.listen(HTTP_PORT, onHTTPStart);
-}).catch(function(err){
-    console.log("Unable to start server " + err);
-})
-
 //setup a route to senend the html form to the clit 
-app.get("/items/add", function(req, res){
+app.get("/items/add", ensureLogin, function(req, res){
     store.getCategories().then((data)=>{
         res.render('addItem', {
             categories: data
@@ -271,7 +298,7 @@ app.post("/items/add", upload.single("featureImage"), (req,res)=>{
 })
 
 //setup a route to send the html form to the client 
-app.get("/categories/add", function(req, res){
+app.get("/categories/add", ensureLogin, function(req, res){
     res.render('addCategory', { //set up route to render an addCategory view 
         layout: 'main'
     });
@@ -322,7 +349,7 @@ app.post("/categories/add", (req, res) => {
 });
 
 // do the /categories/delete/:id route
-app.get("/categories/delete/:id", function(req, res){
+app.get("/categories/delete/:id", ensureLogin, function(req, res){
     store.deleteCategoryById(req.params.id).then(() =>{
         res.redirect('/Categories');
     }).catch((err) =>{
@@ -332,7 +359,7 @@ app.get("/categories/delete/:id", function(req, res){
 
 //adding new routes to query items
 //update the /items?category=value route 
-app.get("/items", function(req, res){
+app.get("/items", ensureLogin, function(req, res){
     const{category, minDate} = req.query;
     if(category){
         store.getItemsByCategory(category).then((data)=>{
@@ -392,7 +419,7 @@ app.get("/items", function(req, res){
 });
 
 //add the /item/value route 
-app.get("items/:value", function(req, res){
+app.get("items/:value", ensureLogin, function(req, res){
     store.getItemById(req.params.value).then((data)=>{
         res.send(data);
     }).catch(function(err){
@@ -402,7 +429,7 @@ app.get("items/:value", function(req, res){
 
 
 // add the /Items/delete/:id route
-app.get("/items/delete/:id", function(req, res){
+app.get("/items/delete/:id", ensureLogin, function(req, res){
     store.deletePostById(req.params.id).then(()=>{
         res.redirect("/items");
     }).catch((err) =>{
@@ -410,9 +437,69 @@ app.get("/items/delete/:id", function(req, res){
     });
 })
 
+//get /login route 
+app.get("/login", (req, res) =>{
+    res.render("login");
+})
+
+//get /register route
+app.get("/register", (req, res) =>{
+    res.render("register");
+})
+
+//post /register route
+app.post("/register", (req, res) =>{
+    const userData = req.body;
+
+    authData.registerUser(userData).then(() =>{
+        res.render("register", {
+            successMessage: "User created"
+        })
+    }).catch((err) =>{
+        res.render("register", {
+            errorMessage: err,
+            userName: req.body.userName
+        })
+    });
+});
+
+//post /login route
+app.post("/login", (req, res) =>{
+    //set the value of the client's "User-Agent" to the request body
+    req.body.userAgent = req.get('User-Agent');
+    const userData = req.body;
+
+    authData.checkUser(userData).then((user) =>{
+        req.session.user = {
+            userName: user.userName,
+            email: user.email,
+            loginHistory: user.loginHistory
+        }
+        res.redirect("/items");
+    }).catch((err) =>{
+        res.render("/login", {
+            errorMessage: err,
+            //returning the user back to the page so they don't forget the user value that was used to attempt to log into the system 
+            userName: req.body.userName
+        })
+    });
+});
+
+// get /logout route will simply reset the session and redirect the user to the "/" route
+app.get("/logout", (req, res) =>{
+    req.session.reset();
+    res.redirect("/");
+});
+
+//get /userHistory route 
+app.get("/userHistory", ensureLogin, (req, res) =>{
+    res.render("userHistory");
+});
+
 //no matching route 
 app.use((req, res)=>{
     res.status(404).render("404", {
         message: "Page Not Found"
     });
 });
+
